@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="Description" content="Create And Join Online Concert">
+  <title>Anonymous Concert</title>
+  <script src="https://kit.fontawesome.com/90bede2e6a.js" crossorigin="anonymous" defer></script>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
+  
+  <link rel="apple-touch-icon" sizes="180x180" href="/res/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/res/microphone-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/res/microphone-16x16.png">
+</head>
+<body>
+  <main class="container">
+    <div id="newBox">
+      <div class="segmented-control">
+        <div>
+          <input type="radio" id="microphone" name="mode" value="microphone" checked />
+          <label for="microphone" class="tab-microphone">
+            <p>microphone</p>
+          </label>
+        </div>
+        <div>
+          <input type="radio" id="speaker" name="mode" value="speaker" />
+          <label for="speaker" class="tab-speaker">
+            <p>speaker</p>
+          </label>
+        </div>
+        <div class="segmented-control__color selected-microphone"></div>
+    </div>
+      
+      <div id="chatMode" style="display: none;">
+        <div class="messages">
+        
+        </div>
+        <div class="sendmessage">
+          <textarea id="typedMessage"></textarea>
+          <div id="emojiHolder">
+            <i class="material-icons" id="emojiBtn">insert_emoticon</i>
+            <div class="emojiBar">
+            </div>
+          </div>
+
+          <div class="sendBtn" id="sendBtn"> SEND</div>
+        </div>
+      </div>
+      <div id="microphone-mode" class="microphone" >
+        <div class="circle">
+          <input type="checkbox" id="streaming"/>
+          <label for="streaming">
+            <i class="material-icons" id="mainMicIcon">mic_none</i>
+          </label>
+          <span class="circle__back-1"></span>
+          <span class="circle__back-2"></span>
+        </div>
+        <div class="chip">
+          <div class="chip__icon">
+            <i class="material-icons" id="microphone-state-icon">mic</i>
+          </div>
+          <p id="microphone-state-text">Tap Above To Start Concert</p>
+          <div class="chip__icon customicon"><i class="material-icons themeBtn">light_mode</i></div>
+        </div>
+      </div>
+      <div id="speaker-mode" class="speaker" style="display: none;">
+        <div class="circle">
+          <input type="checkbox" id="listening" disabled/>
+          <label for="listening">
+            <i class="material-icons" id="mainSpeakerIcon">volume_up</i>
+          </label>
+          <span class="circle__back-1"></span>
+          <span class="circle__back-2"></span>
+        </div>
+        <div class="chip">
+          <div class="chip__icon">
+            <i class="material-icons" id="speaker-state-icon">hearing</i>
+          </div>
+          <input type="text" id="speaker-state-text" placeholder="Please Enter Concert ID"></input>
+          <div class="chip__icon customicon"><i class="material-icons themeBtn" >light_mode</i></div>
+
+        </div>
+      </div>
+      
+          <div class="icon">
+            <p id="counter">Total Listeners : <span>0</span></p>
+            <p id="sign"> Welcome Kiddo</p>
+          </div>
+      </div>
+  
+  </main>
+  <script>
+    
+    const getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+    document.addEventListener('DOMContentLoaded', function() {
+
+      let isLightMode = localStorage.getItem("mode") != "dark";
+      const themeBtns = document.getElementsByClassName("themeBtn");
+      const rootVariable = document.querySelector(":root");
+      const setVariables = vars => Object.entries(vars).forEach(v => rootVariable.style.setProperty(v[0], v[1]));
+
+      const lightProfile = {
+            "--primary":"#6d5dfc",
+            "--primary-dark":"#5b0eeb",
+            "--white":"#fff",
+            "--greyLight-1":"#e4ebf5",
+            "--greyLight-2":"#c8d0e7",
+            "--greyDark":"#9baacf",
+            "--sign" : "#000000",
+            "--border" : "#d6dde8",
+            "--activeNumber" : "green",
+            "--sendBtnBg" : "#c8d0e7",
+
+      }
+      const darkProfile = {
+            "--primary":"#eb11ff",
+            "--primary-dark":"#5b0eeb",
+            "--white":"#2a117d",
+            "--greyLight-1":"#000000",
+            "--greyLight-2":"#1a23aa",
+            "--greyDark":"#eb11ff",
+            "--sign" : "#eb11ff",
+            "--border" : "#1d1e1f",
+            "--activeNumber" : "#49d949",
+            "--sendBtnBg" : "#eb11ff7a"
+
+
+
+      }
+      console.log(themeBtns)
+      function setAllBtns(){
+        let curColor = "black";
+        let curText = "dark_mode";
+        if(!isLightMode){
+          curColor = "yellow"
+          curText = "light_mode";
+          setVariables(darkProfile);
+        }else{
+
+          setVariables(lightProfile);
+
+        }
+        for(let i = 0; i < 2; i++){
+          themeBtns[i].style.color = curColor;
+          themeBtns[i].innerText = curText;
+        }
+      }
+      setAllBtns();
+      const themeChanger = () => {
+        if(isLightMode){
+          localStorage.setItem("mode", "dark");
+        }else{
+          localStorage.setItem("mode", "light");
+
+        }
+        isLightMode = !isLightMode;
+        setAllBtns();
+      }
+      themeBtns[0].addEventListener('click', themeChanger);
+      themeBtns[1].addEventListener('click', themeChanger);
+      const microphoneRadio = document.getElementById('microphone');
+      const speakerRadio = document.getElementById('speaker');
+      const microphoneMode = document.getElementById('microphone-mode');
+      const speakerMode = document.getElementById('speaker-mode');
+      
+      
+      const segmentedControlColor = document.querySelector('.segmented-control__color');
+
+      const chatRoom = document.getElementById("chatMode");
+
+      const microphoneLabel = document.querySelector(".tab-microphone > p");
+      const speakerLabel = document.querySelector(".tab-speaker > p");
+
+      microphoneRadio.addEventListener('change', function() {
+        if (microphoneRadio.checked) {
+          if(microphoneLabel.innerHTML == "microphone"){
+            microphoneMode.style.display = 'block';
+            chatRoom.style.display = "none";
+
+          }else{
+            chatRoom.style.display = "block";
+          }
+          speakerMode.style.display = 'none';
+          segmentedControlColor.classList.remove('selected-speaker');
+          segmentedControlColor.classList.add('selected-microphone');
+        }
+      });
+      
+      speakerRadio.addEventListener('change', function() {
+        if (speakerRadio.checked) {
+          if(speakerLabel.innerHTML == "speaker"){
+            speakerMode.style.display = 'block';
+            chatRoom.style.display = "none";
+          }else{
+            chatRoom.style.display = "block";
+          }
+
+          microphoneMode.style.display = 'none';
+          segmentedControlColor.classList.remove('selected-microphone');
+          segmentedControlColor.classList.add('selected-speaker');
+        }
+      });
+      
+     
+     
+      const microphoneStateIcon = document.querySelector('#microphone-state-icon');
+      const microphoneStateText = document.getElementById('microphone-state-text');
+      const speakerStateIcon = document.getElementById('speaker-state-icon');
+      const speakerStateText = document.querySelector('#speaker-state-text');
+
+
+      const speakerAnimation = document.querySelector("#listening");
+      const microphpneAnimation = document.getElementById("streaming");
+
+      const mainMicIcon = document.getElementById("mainMicIcon");
+      const mainSpeakerIcon = document.getElementById("mainSpeakerIcon");
+
+      const counter = document.querySelector("#counter > span");
+      const counterShow = document.querySelector("#counter");
+      const messageSign = document.querySelector('#sign');
+
+      const messagesHolder = document.getElementsByClassName("messages")[0];
+      const sendBtn = document.getElementById("sendBtn");
+      const curTypedMessage = document.getElementById("typedMessage")
+      
+      
+
+      function changeColorProfile(status){
+        let color = "";
+        let textColor = ""
+        let micIcon = "mic"
+        if(status == 0){
+          color = "blue";
+        }else if(status == 1){
+          color = "#49d949"
+          textColor = "#49d949";
+          microphoneStateIcon.innerText = "mic_off";
+          microphoneStateIcon.style.color = "red";
+
+        }else{
+          // Muted 
+          color = "red"
+          textColor = "red"
+          micIcon = "mic_off";
+          microphoneStateIcon.innerText = "mic";
+          microphoneStateIcon.style.color = "green";
+        }
+        mainMicIcon.style.color = color;
+        mainMicIcon.innerHTML = micIcon;
+        
+        mainSpeakerIcon.style.color = color;
+        speakerStateIcon.style.color = color;
+
+        
+        speakerStateText.style.color = textColor;
+        microphoneStateText.style.color = textColor;
+      }
+      
+      
+      const peer = new Peer("", {
+        host: "/",
+        path: "/signallingserver/myapp",
+      });
+      //  const peer = new Peer("", {
+      //   host: "/",
+      //   port : "9000",
+      //   path: "/myapp",
+      // });
+      const clientSocket = io();
+
+      var curStream;
+
+      var allList = [];
+      var curCall;
+      var curRoomID = "";
+      
+      peer.on('open', () => {
+        clientSocket.emit("connectID", peer._id);
+      })
+
+      peer.on('call', function(call) {
+        microphoneLabel.innerHTML = "chatroom";
+        curCall = call;
+        call.answer();
+        speakerAnimation.checked = true;
+        speakerStateText.value = speakerStateText.value.replace("Connecting", "Connected")
+        counterShow.style.display = "block";
+        messageSign.style.display = "none"
+        
+        changeColorProfile(1);
+
+
+        call.on('stream', function(remoteStream) {
+            console.log(remoteStream)
+            
+            const newAudio = new Audio();
+            newAudio.autoplay = true;
+            newAudio.srcObject = remoteStream;
+            console.log(remoteStream)
+
+        });
+        call.on('close', () => {
+          microphoneLabel.innerHTML = "microphone";
+          chatRoom.style.display = "none";
+          if(microphoneRadio.checked){
+            microphoneMode.style.display = "block"
+          }
+          curCall = undefined;
+          curRoomID = undefined;
+
+          speakerStateText.disabled = false;
+          speakerStateText.value = "";
+          speakerAnimation.checked = false;
+          messageSign.style.display = "block";
+          counterShow.style.display = "none";
+
+          // mainSpeakerIcon.style.color = "blue";
+          // speakerStateIcon.style.color = "blue";
+          // speakerStateText.style.color = "var(--grayDark)";
+          changeColorProfile(0);
+        });
+      });
+      
+      clientSocket.on('callTo', (lisID) => {
+          const callObj = peer.call(lisID, curStream,
+          {
+              'constraints': {
+                  'mandatory': {
+                      'OfferToReceiveAudio': true,
+                      'OfferToReceiveVideo': false
+                  },
+                  offerToReceiveAudio: 1,
+                  offerToReceiveVideo: 0,
+                  },
+              'sdpTransform': (test) => {
+                  return test.replace( "a=fmtp:111 minptime=10;useinbandfec=1","a=fmtp:111 ptime=10;useinbandfec=1;stereo=0;maxplaybackrate=16000;maxaveragebitrate=64000");
+                }
+            }
+          );
+          allList.push(callObj);
+          console.log(callObj)
+      })
+      clientSocket.on("passcode", (concertDetail) => {
+        speakerLabel.innerHTML = "chatroom";
+        curRoomID = concertDetail.id;
+        counterShow.style.display = "block";
+        messageSign.style.display = "none"
+        microphoneStateText.textContent = "Concert Code : " + concertDetail.id;
+        microphpneAnimation.checked = true;
+        changeColorProfile(1);
+
+      });
+      clientSocket.on("updateCount", (count) => {
+        counter.innerHTML = count;
+      })
+      speakerStateText.addEventListener("keypress", (e) => {
+      console.log("Hello");
+      if(e.key == "Enter"){
+          if(speakerStateText.value != ""){
+            speakerAnimation.checked = false;
+            curRoomID = speakerStateText.value;
+            clientSocket.emit("joinConcert", speakerStateText.value);
+            speakerStateText.value = "Connecting To : " + speakerStateText.value;
+            speakerStateText.disabled = true;
+          }
+        }
+      })
+
+      clientSocket.on('concertEnd', () => {
+        if(curCall){
+          curCall.close();
+        }
+      })
+      clientSocket.on('newMessage', (message) => {
+        const newMessage = document.createElement('div')
+        newMessage.innerText = message;
+        messagesHolder.appendChild(newMessage)
+        messagesHolder.scrollTop = messagesHolder.scrollHeight - messagesHolder.clientHeight;
+      })
+
+      document.getElementById('streaming').addEventListener('change', function(event) {
+        if (event.target.checked) {
+          getUserMedia({audio : true, video : false}, stream => {
+            microphoneStateText.textContent = 'Please Allow Mic Permission';
+            microphoneStateIcon.textContent = 'mic';
+            curStream = stream;
+            clientSocket.emit('createNewConcert');
+          })
+        } else {  
+          speakerLabel.innerHTML = "speaker";
+          if(speakerRadio.checked){
+            speakerMode.style.display = "block"
+          }
+          if(curRoomID){
+            if(curStream){
+              for(let eachTrack of curStream.getTracks()){
+                eachTrack.stop();
+              }
+              curStream = undefined;
+            }
+            for(let eachLis of allList){
+              eachLis.close();
+            }
+            allList = [];
+            curRoomID = undefined;
+            clientSocket.emit("endTheConcert", curRoomID);
+            messageSign.style.display = "block";
+            counterShow.style.display = "none"
+            microphoneStateText.textContent = 'Tap Above To Start Concert';
+            // microphoneStateIcon.textContent = 'mic_none';
+            // microphoneStateText.style.color = "var(--grayDark)"
+            // mainMicIcon.style.color = "blue";
+            // microphoneStateIcon.style.color="blue";
+            changeColorProfile(0);
+          }
+        }
+      });
+
+
+      microphoneStateIcon.addEventListener('click', () => {
+        console.log()
+        if(curStream){
+          const curTrack = curStream.getAudioTracks()[0]
+          if(curTrack.enabled){
+            changeColorProfile(2);
+            curTrack.enabled = false;
+
+          }else{
+            changeColorProfile(1);
+            curTrack.enabled = true;
+          }
+        }
+      });
+
+      function sendMessage(){
+        const newMessage = document.createElement('div')
+        newMessage.className = "sent";
+        newMessage.innerText = curTypedMessage.value;
+        clientSocket.emit("sendMessage", curRoomID, curTypedMessage.value); 
+        curTypedMessage.value = "";
+        messagesHolder.appendChild(newMessage)
+        messagesHolder.scrollTop = messagesHolder.scrollHeight - messagesHolder.clientHeight;
+      }
+      curTypedMessage.addEventListener("keyup", (ev) => {
+        if(ev.code == "Enter"){
+          sendMessage()
+        }
+        if(curTypedMessage.value == ""){
+          sendBtn.style.color = "#fffff";
+          sendBtn.style.backgroundColor = "var(--sendBtnBg)";
+        }else{
+          sendBtn.style.color = "#00000";
+          sendBtn.style.backgroundColor = "var(--primary)";
+
+        }
+      })
+      sendBtn.addEventListener('click', sendMessage);
+
+      const emojiBtn = document.querySelector('#emojiBtn');
+      const emojis = [
+          "128512",
+          "128513",
+          "128514",
+          "128515",
+          "128516",
+          "128517",
+          "128518",
+          "128519",
+          "128520",
+          "128521",
+          "128522",
+          "128523",
+          "128524",
+          "128525",
+          "128526",
+          "128527",
+          "128528",
+          "128529",
+          "128530",
+          "128531",
+          "128532",
+          "128533",
+          "128534",
+          "128535",
+          "128536",
+          "128537",
+          "128538",
+          "128539",
+          "128540",
+          "128541",
+          "128542",
+          "128543",
+          "128544",
+          "128545",
+          "128546",
+          "128547",
+          "128548",
+          "128549",
+          "128550",
+          "128551",
+          "128552",
+          "128553",
+          "128554",
+          "128555",
+          "128556",
+          "128557",
+          "128558",
+          "128559",
+          "128560",
+          "128561",
+          "128562",
+          "128563",
+          "128564",
+          "128565",
+          "128566",
+          "128567"
+      ]
+
+      const emojiBar = document.querySelector(".emojiBar");
+      for(let eachEmoji of emojis){
+        const newEmoji = document.createElement('emoji');
+        newEmoji.innerHTML = "&#" + eachEmoji + ";";
+        newEmoji.addEventListener('click',() => {
+          curTypedMessage.value +=  newEmoji.innerHTML
+        } )
+        emojiBar.appendChild(newEmoji)
+      }
+      emojiBtn.addEventListener('click', () => {
+        emojiBtn.style.display = "none";
+        sendBtn.style.display = "none"
+        emojiBar.style.visibility = "inherit"
+      });
+      curTypedMessage.addEventListener('focus', () => {
+        emojiBtn.style.display = "block";
+        sendBtn.style.display = "flex"
+        emojiBar.style.visibility = "hidden"
+      })
+    });
+  </script>
+</body>
+
+    
+<style>
+  @font-face{
+    font-family:Poppins;
+    font-style:normal;
+    font-weight:400;
+    font-display:swap;
+    src:url(https://fonts.gstatic.com/s/poppins/v21/pxiEyp8kv8JHgFVrFJA.ttf) format('truetype')
+}
+@font-face{
+    font-family:Poppins;
+    font-style:normal;
+    font-weight:700;
+    font-display:swap;
+    src:url(https://fonts.gstatic.com/s/poppins/v21/pxiByp8kv8JHgFVrLCz7V1s.ttf) format('truetype')
+}
+@font-face{
+    font-family:'Material Icons';
+    font-style:normal;
+    font-weight:400;
+    src:url(https://fonts.gstatic.com/s/materialicons/v142/flUhRq6tzZclQEJ-Vdg-IuiaDsNZ.ttf) format('truetype')
+}
+.material-icons{
+    font-family:'Material Icons';
+    font-weight:400;
+    font-style:normal;
+    font-size:24px;
+    line-height:1;
+    letter-spacing:normal;
+    text-transform:none;
+    display:inline-block;
+    white-space:nowrap;
+    word-wrap:normal;
+    direction:ltr
+}
+:root{
+   
+    --width:24.5rem;
+    --circle-size:15rem
+
+}
+*,::after,::before{
+    margin:0;
+    padding:0;
+    box-sizing:inherit
+}
+html{
+    box-sizing:border-box;
+    font-size:62.5%;
+    background:var(--greyLight-1);
+    user-select: none;
+}
+a{
+    text-decoration:none
+}
+.container{
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    flex-direction:column;
+    font-family:Poppins,sans-serif;
+    background:var(--greyLight-1)
+}
+.microphone,.speaker{
+    grid-column:1;
+    grid-row:2
+}
+.chip{
+    justify-self:center;
+    width:24.5rem;
+    height:4rem;
+    border-radius:1rem;
+    box-shadow:.3rem .3rem .6rem var(--greyLight-2),-.2rem -.2rem .5rem var(--white);
+    display:flex;
+    justify-content:start;
+    align-items:center;
+    position : relative;
+}
+.chip__icon{
+    width:3rem;
+    height:3rem;
+    border-radius:1rem;
+    margin:0 0 0 .2rem;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:1.8rem;
+    color:var(--primary);
+    user-select: auto;
+}
+.chip p{
+    font-size:1.3rem;
+    color:var(--greyDark)
+}
+.chip input{
+    padding-left:10px;
+    padding-right:10px;
+    font-size:1.6rem;
+    color:var(--greyDark);
+    overflow:hidden;
+    width:100%;
+    height:100%;
+    border:none;
+    background:0 0;
+    outline:0
+}
+.chip input::placeholder{
+    font-family:Poppins,sans-serif;
+    font-size:1.3rem;
+    color:var(--greyDark);
+    letter-spacing:1px
+}
+.circle{
+    position:relative;
+    justify-self:center;
+    display:grid;
+    justify-items:center;
+    align-items:center;
+    margin:10rem 0
+}
+.circle input{
+    display:none
+}
+.circle label{
+    width:var(--circle-size);
+    height:var(--circle-size);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    border-radius:50%;
+    font-size:3.2rem;
+    color:var(--primary);
+    background:var(--greyLight-1);
+    box-shadow:.3rem .3rem .6rem var(--greyLight-2),-.2rem -.2rem .5rem var(--white);
+    cursor:pointer;
+    position:relative;
+    z-index:300
+}
+.circle label i{
+    font-size:10rem;
+    position:absolute;
+    opacity:1;
+    transition:all .2s linear
+}
+.circle input:checked~label{
+    box-shadow:inset .2rem .2rem .5rem var(--greyLight-2),inset -.2rem -.2rem .5rem var(--white)
+}
+.circle__back-1,.circle__back-2{
+    position:absolute;
+    width:var(--circle-size);
+    height:var(--circle-size);
+    border-radius:50%;
+    filter:blur(1px);
+    z-index:100
+}
+.circle__back-1{
+    animation-play-state:paused
+}
+.circle input:checked~.circle__back-1{
+    box-shadow:.4rem .4rem .8rem var(--greyLight-2),-.4rem -.4rem .8rem var(--white);
+    background:linear-gradient(to bottom right,var(--greyLight-2) 0,var(--white) 100%);
+    animation:waves 4s linear infinite
+}
+.circle__back-2{
+    animation-play-state:paused
+}
+.circle input:checked~.circle__back-2{
+    box-shadow:.4rem .4rem .8rem var(--greyLight-2),-.4rem -.4rem .8rem var(--white);
+    animation:waves 4s linear 2s infinite
+}
+.segmented-control{
+    grid-column:1;
+    grid-row:1;
+    width:var(--width);
+    height:4rem;
+    box-shadow:.3rem .3rem .6rem var(--greyLight-2),-.2rem -.2rem .5rem var(--white);
+    border-radius:1rem;
+    display:flex;
+    align-items:center;
+    position:relative
+}
+.segmented-control input{
+    display:none
+}
+.segmented-control div>input:checked+label{
+    transition:all .5s ease;
+    color:var(--primary)
+}
+.tab-microphone,.tab-speaker{
+    width:12rem;
+    height:3.6rem;
+    font-size:1.4rem;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    cursor:pointer;
+    color:var(--greyDark);
+    transition:all .5s ease
+}
+.tab-microphone:hover,.tab-speaker:hover{
+    color:var(--primary)
+}
+.segmented-control__color{
+    position:absolute;
+    height:3.4rem;
+    width:12rem;
+    margin-left:.3rem;
+    border-radius:.8rem;
+    box-shadow:inset .2rem .2rem .5rem var(--greyLight-2),inset -.2rem -.2rem .5rem var(--white);
+    pointer-events:none
+}
+.segmented-control__color.selected-microphone{
+    transform:translateX(0);
+    transition:transform .3s cubic-bezier(.645,.045,.355,1)
+}
+.segmented-control__color.selected-speaker{
+    transform:translateX(12rem);
+    transition:transform .3s cubic-bezier(.645,.045,.355,1)
+}
+@keyframes waves{
+    0%{
+        transform:scale(1);
+        opacity:1
+    }
+    50%{
+        opacity:1
+    }
+    100%{
+        transform:scale(2);
+        opacity:0
+    }
+}
+#newBox{
+    position: relative;
+    border-left:5px solid var(--border);
+    border-right:5px solid var(--border);
+    border-top:3px solid var(--border);
+    border-bottom:3px solid var(--border);
+    border-top-left-radius:40px;
+    border-top-right-radius:40px;
+    border-bottom-right-radius:40px;
+    border-bottom-left-radius:40px;
+    padding:30px
+}
+.icon{
+    margin-top:20px;
+    position: relative;
+    display:flex;
+    justify-content:center;
+    align-items: center;
+    font-size:1.6em;
+    color:var(--primary);
+    font-family:Poppins,sans-serif;
+    letter-spacing:2px;
+    font-size:bold;
+    opacity:.8;
+    font-weight:900;
+}
+#counter{
+    display:none
+}
+#counter>span{
+    color: var(--activeNumber);
+    opacity:1
+}
+#sign{
+    color:var(--sign);
+}
+.messages{
+    padding-top:20px;
+    width:24.5rem;
+    overflow:auto;
+    overflow-x:hidden;
+    position:relative;
+    display:inline-flex;
+    flex-direction:column;
+    height:30rem
+}
+.messages::-webkit-scrollbar{
+    width:5px
+}
+.messages::-webkit-scrollbar-track{
+    background-clip:content-box
+}
+.messages::-webkit-scrollbar-thumb{
+    border-radius:8px;
+    background-color:var(--greyDark)
+}
+.messages::-webkit-scrollbar-thumb:vertical:hover{
+    background-color:var(--primary-dark)
+}
+.messages>div{
+    border:3px solid var(--border);
+    border-top-left-radius:20px;
+    border-bottom-right-radius:20px;
+    width:50%;
+    padding:5px;
+    margin-bottom:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight: 900;
+    color:var(--primary);
+}
+.sent{
+    position:relative;
+    margin-left:auto;
+    right:0;
+    margin-right:10px
+}
+.sendmessage{
+    position:relative;
+    width:24.5rem;
+    height:10rem;
+    border:3px solid #d6dde8;
+    overflow:hidden;
+    border-radius:30px
+}
+.sendmessage>textarea{
+    padding:20px;
+    width:100%;
+    height:6.4rem;
+    background:0 0;
+    border:none;
+    outline:0;
+    resize:none;
+    overflow:hidden;
+    font-family:Poppins,sans-serif;
+    color:var(--primary);
+    font-weight:800;
+    font-size:17px;
+    letter-spacing:2px
+}
+.sendmessage > i{
+  padding-left: 10px;
+}
+.sendBtn{
+    position:absolute;
+    width:10rem;
+    height:3rem;
+    bottom:0;
+    right:0;
+    border-top-left-radius:30px;
+    background-color:var(--sendBtnBg);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-weight:900;
+    font-size:25px;
+    color:var(--greyLight-1);
+    font-style:italic
+}
+.sendBtn:hover{
+    color:#161fa4;
+    background-color:#95a6d7
+}
+#emojiHolder {
+
+  width:100%;
+  height:3rem;
+  position: relative;
+}
+#emojiBtn {
+  color: var(--greyDark);
+  padding: 10px;
+}
+#emojiBtn:hover {
+  color: var(--primary);
+}
+.emojiBar {
+  visibility: hidden;
+  position: absolute;
+  z-index: 1;
+  top:0;
+  height: 100%;
+  width: 100%;
+  /* background-color: var(--greyLight-2); */
+  display: flex;
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+  align-items: center;
+}
+
+.emojiBar::-webkit-scrollbar{
+        height: 10px;
+        width: 4px;
+  }
+.emojiBar::-webkit-scrollbar-thumb:horizontal{
+      background-color:var(--greyDark);
+      border-radius:8px;
+  }
+  .emojiBar::-webkit-scrollbar-thumb:horizontal:hover{
+    background-color:var(--primary-dark);
+  }
+
+  emoji{
+    font-size: 25px;
+  }
+  emoji:hover{
+    font-size: 30px;
+  }
+  .customicon {
+    position: absolute;
+    right: 0;
+  }
+  
+  #microphone-state-text{
+    user-select: text;
+  }
+ 
+  @media screen and (min-width:900px){
+      html{
+          font-size:90%
+      }
+      
+    
+  }
+  @media screen and (min-width:451px) and (max-width:900px){
+     #emojiBtn{
+      padding: 0px;
+      padding-left: 10px;
+     }
+     emoji{
+      font-size: 14px;
+     }
+    
+  }
+
+  @media screen and (max-width:450px){
+      #emojiHolder {
+        display: none;
+        visibility: hidden;
+      }
+     
+    
+  }
+
+</style>
+</html>
